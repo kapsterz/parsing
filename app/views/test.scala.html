@@ -1,0 +1,44 @@
+@(userForm: Form[UserData])(implicit messages: Messages)
+<!DOCTYPE html>
+
+<html>
+    <head>
+        <title></title>
+        <link rel="stylesheet" media="screen" href="@routes.Assets.at("stylesheets/main.css")">
+        <link rel="shortcut icon" type="image/png" href="@routes.Assets.at("images/favicon.png")">
+        <script src="@routes.Assets.at("javascripts/jquery-1.9.0.min.js")" type="text/javascript"></script>
+    </head>
+    <body>
+        <nav>
+            <a href="/">
+                <img TODO>
+            </a>
+            <h3>Perfect project</h3>
+        </nav>
+        <h1>It is perfect project</h1>
+        <h3>Please select what u need</h3>
+        @helper.form(
+            action = routes.Application.userPost) {
+            @helper.inputRadioGroup(
+                userForm("requestValue"),
+                options = Seq(
+                    "Google" -> "Parse Google",
+                    "Yandex" -> "Parse Yandex",
+                    "Bing" -> "Parse Bing",
+                    "Combine" -> "Parse Combine"),
+                '_label -> "Where we will parsing?")
+            @helper.inputRadioGroup(
+                userForm("requestType"),
+                options =
+                        Seq(
+                            "proxy" -> "Parse proxy",
+                            "another" -> "Parse another"),
+                '_label -> "What we will parsing?")
+            @helper.inputText(
+                userForm("requestAnother"),
+                'id -> "another",
+                '_label -> "Request to parse")
+            <button type="submit" formmethod="post">Make request!</button>
+        }
+    </body>
+</html>
