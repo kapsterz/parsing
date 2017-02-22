@@ -1,3 +1,4 @@
+@(list: List[String])
 <!DOCTYPE html>
 
 <html>
@@ -35,7 +36,9 @@
             <option value="Opera">
                 <option value="Safari">
             </datalist>
-
+            @for(order <- list) {
+            <h3>@order</h3>
+            }
         </form>
     </body>
 </html>

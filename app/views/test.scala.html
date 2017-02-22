@@ -23,7 +23,6 @@
                 userForm("requestValue"),
                 options = Seq(
                     "Google" -> "Parse Google",
-                    "Yandex" -> "Parse Yandex",
                     "Bing" -> "Parse Bing",
                     "Combine" -> "Parse Combine"),
                 '_label -> "Where we will parsing?")
@@ -38,6 +37,20 @@
                 userForm("requestAnother"),
                 'id -> "another",
                 '_label -> "Request to parse")
+            @helper.inputText(
+                userForm("numberOfPages"),
+                '_label -> "Number of pages to parse")
+            @helper.inputRadioGroup(
+                userForm("pasreFromURL"),
+                options=
+                        Seq(
+                            "1" -> "true",
+                            "2" -> "false"
+                        ),
+                '_label -> "From another URL?")
+            @helper.inputText(
+                userForm("urlToParse"),
+                '_label -> "Input ur URL")
             <button type="submit" formmethod="post">Make request!</button>
         }
     </body>
