@@ -90,7 +90,7 @@ class Application @Inject()(ws: WSClient)
           Seq(Url(f))
       }
       case UserData(_, _, l, d, "1", o) => Seq(Url(o, l, num = d))
-      case UserData(_,_,_,_,_,_) => throw sys.error( "Error in line 93, Bad request")
+      case UserData(_, _, _, _, _, _) => throw sys.error("Error in line 93, Bad request")
     }
 
 
@@ -151,30 +151,33 @@ class Application @Inject()(ws: WSClient)
           case _ => Future.successful(s)
         }
       }
+
       val res = acc(10, doc, List.empty)
-      res.map(f => {
-        splitParProxy(f, f.length).map{ l =>
+      res.flatMap(f => {
+        val prox = splitParProxy(f, f.length)
+        prox.flatMap { l =>
 
-        if (l.nonEmpty) {
-          val docc = Json.obj(
-            "proxy" -> l.map(z =>
-              JsString(z)
+          if (l.nonEmpty) {
+            val docc = Json.obj(
+              "proxy" -> l.map(z =>
+                JsString(z)
+              )
             )
-          )
 
-          val writeRes = collection.map(_.insert(docc))
-          writeRes onComplete {
-            case Failure(e) => println("Error adding elements in DB: " + e)
-            case Success(writeResult) => println("Add elements in DB success: " + writeResult)
+            val writeRes = collection.map(_.insert(docc))
+            writeRes onComplete {
+              case Failure(e) => println("Error adding elements in DB: " + e)
+              case Success(writeResult) => println("Add elements in DB success: " + writeResult)
+            }
+
+          } else {
+            println("Error: nothing to add in DB :(")
           }
-
-        } else {
-          println("Error: nothing to add in DB :(")
+          prox
         }
       }
-      }
       )
-      res
+
 
     case _ =>
       println("Error: Response body empty!")
@@ -213,18 +216,25 @@ class Application @Inject()(ws: WSClient)
   }
 
   private def kekz(userData: UserData = UserData()): Html = {
+    val c = request()
     val x: Future[List[String]] = userData.pasreFromURL match {
       case "2" =>
-        request().head.map(reqq(userData.requestValue))
-        if (request().tail.nonEmpty)  request().tail.head.flatMap(reqq(userData.requestValue))
-        else Future.successful(List("Nothing found"))
-      case "1" => request().head.map {
-        w =>
+        c.nonEmpty match {
+          case true if c.tail.nonEmpty =>
+            Future.sequence(Seq(c.tail.head.flatMap(reqq(userData.requestValue)),
+              c.head.flatMap(reqq(userData.requestValue))))
+              .map(_.flatten.toList)
+          case true => c.head.flatMap(reqq(userData.requestValue))
+          case false => Future.successful(List("Nothing found"))
+        }
+      case "1" =>
+        c.head.map { w =>
           List(w.body.contains(userData.requestAnother).toString)
-      }
+        }
     }
-    Await(views.html.index(x),)
-
+    Await.result(x.map(d => {
+      views.html.index(d)
+    }), 100.second)
 
   }
 
@@ -251,7 +261,7 @@ class Application @Inject()(ws: WSClient)
       }
       Await.result(getFromDb.map(d => {
         splitParProxy(d, d.length).foreach(println(_))
-      }), 100.second)
+      }), 200.second)
       Redirect(routes.Application.test())
   }
 }
