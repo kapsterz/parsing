@@ -3,7 +3,7 @@
 # ~~~~
 
 # Home page
-GET     /                                  controllers.Application.index
+GET     /                                  controllers.Application.index(d:List[String])
 
 GET     /test                              controllers.Application.test
 

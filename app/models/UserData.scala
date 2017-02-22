@@ -6,6 +6,6 @@ package models
 case class UserData(requestValue: String = "Bing",
                     requestType: String = "proxy",
                     requestAnother: String = "",
-                    numberOfPages: Int = 0,
+                    numberOfPages: Int = 1,
                     pasreFromURL: String = "2",
                     urlToParse: String = "")

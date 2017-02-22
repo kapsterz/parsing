@@ -79,17 +79,28 @@ class Application @Inject()(ws: WSClient)
 
   private def goInToUrl(url: String) = reqAttr(url).get()
 
+  private def goInToUrlWithProxy(url: String, proxy: String) = {
+    val n: Int = proxy.indexOf(":")
+    val defProxy: WSProxyServer = DefaultWSProxyServer(protocol = Some("http"),
+      host = proxy.substring(0, n),
+      port = proxy.substring(n + 1, proxy.length).toInt)
+    reqAttr(url)
+      .withProxyServer(defProxy)
+      .get()
+  }
+
+
   private def Url(v: String, reqs: String = "alive+proxy", num: Int = 0) = goInToUrl(pom(v, reqs, num))
 
   def request(userData: UserData = UserData()): Seq[Future[WSResponse]] =
     userData match {
       case UserData(f, _, _, d, "2", _) => f match {
         case "Combine" =>
-          Seq(Url("Google", num = d * 10), Url("Bing", num = d))
+          Seq(Url("Google", num = (d - 1) * 10), Url("Bing", num = d - 1))
         case _ =>
-          Seq(Url(f))
+          Seq(Url(f, num = d - 1))
       }
-      case UserData(_, _, l, d, "1", o) => Seq(Url(o, l, num = d))
+      case UserData(_, _, l, _, "1", o) => Seq(Url(o, l))
       case UserData(_, _, _, _, _, _) => throw sys.error("Error in line 93, Bad request")
     }
 
@@ -134,6 +145,7 @@ class Application @Inject()(ws: WSClient)
             val docx = requestValue match {
               case "Google" =>
                 val s = goInToUrl("https://google.com" + docz.select("h3.r a").first().attr("href"))
+                println("https://google.com" + docz.select("h3.r a").first().attr("href"))
                 docz.select("h3.r a").first().remove()
                 s
               case "Bing" =>
@@ -215,20 +227,29 @@ class Application @Inject()(ws: WSClient)
     Future.sequence(res).map(_.flatten.toList)
   }
 
+  private def parsFromUrls(userData: UserData = UserData()): Future[List[String]] = {
+    val proxys = for (ints <- 1 to userData.numberOfPages) yield {
+      val c = request(userData)
+      c.nonEmpty match {
+        case true if c.tail.nonEmpty =>
+          Future.sequence(Seq(c.tail.head.flatMap(reqq(userData.requestValue)),
+            c.head.flatMap(reqq(userData.requestValue))))
+            .map(_.flatten.toList)
+        case true =>
+          c.head.flatMap(reqq(userData.requestValue))
+        case false =>
+          Future.successful(List("Nothing found"))
+      }
+    }
+    Future.sequence(proxys).map(_.flatten.toList)
+  }
+
   private def kekz(userData: UserData = UserData()): Html = {
-    val c = request()
     val x: Future[List[String]] = userData.pasreFromURL match {
       case "2" =>
-        c.nonEmpty match {
-          case true if c.tail.nonEmpty =>
-            Future.sequence(Seq(c.tail.head.flatMap(reqq(userData.requestValue)),
-              c.head.flatMap(reqq(userData.requestValue))))
-              .map(_.flatten.toList)
-          case true => c.head.flatMap(reqq(userData.requestValue))
-          case false => Future.successful(List("Nothing found"))
-        }
+        parsFromUrls(userData)
       case "1" =>
-        c.head.map { w =>
+        request(userData).head.map { w =>
           List(w.body.contains(userData.requestAnother).toString)
         }
     }
@@ -238,8 +259,15 @@ class Application @Inject()(ws: WSClient)
 
   }
 
-  def index = Action {
-    Ok(kekz())
+
+  def index(proxyList: List[String] = List.empty): Action[AnyContent] = proxyList match {
+    case d if d.nonEmpty => Action {
+      Ok(views.html.index(proxyList))
+    }
+    case _ =>
+      Action {
+        Ok(kekz())
+      }
   }
 
   def test = Action {
@@ -248,21 +276,19 @@ class Application @Inject()(ws: WSClient)
 
   def userPost: Action[UserData] = Action(parse.form(userForm)) {
     implicit request =>
-      val userData = request.body
-      val newUserData = this.request(UserData(userData.requestValue, userData.requestType, userData.requestAnother, userData.numberOfPages, userData.pasreFromURL, userData.urlToParse))
-      userData.pasreFromURL match {
+      val userData:UserData = request.body
+      val x: Future[List[String]] = userData.pasreFromURL match {
         case "2" =>
-          newUserData.head.map(reqq(userData.requestValue))
-          if (newUserData.tail.nonEmpty) newUserData.tail.head.map(reqq(userData.requestValue))
-        case "1" => newUserData.head.map {
-          w =>
-            println(w.body.contains(userData.requestAnother))
-        }
+          parsFromUrls(userData)
+        case "1" =>
+          this.request(userData).head.map {
+            w =>
+              List(w.body.contains(userData.requestAnother).toString)
+          }
       }
-      Await.result(getFromDb.map(d => {
-        splitParProxy(d, d.length).foreach(println(_))
-      }), 200.second)
-      Redirect(routes.Application.test())
+      Await.result(x.map(d => {
+        Redirect(routes.Application.index(d))
+      }), 100.second)
   }
 }
 
