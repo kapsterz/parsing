@@ -1,16 +1,11 @@
 package controllers
 
-import play.api.mvc._
 import org.jsoup._
 import org.jsoup.nodes._
-import java.io._
-
 import com.google.inject.Inject
-import org.jsoup.parser._
 import play.api.libs.ws.WSClient
 
 import scala.util.matching.Regex
-import scala.collection.mutable.ListBuffer
 import play.api.mvc._
 import play.api.libs.ws._
 import play.api.libs.json._
@@ -23,25 +18,15 @@ import play.api.i18n.Messages.Implicits._
 import akka.actor.ActorSystem
 import akka.stream.ActorMaterializer
 import models.UserData
-import play.modules.reactivemongo._
-import reactivemongo.api.ReadPreference
 import reactivemongo.play.json._
-import reactivemongo.play.json.collection._
 
 import scala.concurrent.{Await, ExecutionContext, Future}
 import reactivemongo.bson.BSONDocument
-import reactivemongo.api.commands.WriteResult
 import reactivemongo.api.collections.bson.BSONCollection
 
-import scala.util.{Failure, Success}
+import scala.util.{Failure, Random, Success}
 import play.modules.reactivemongo.{MongoController, ReactiveMongoApi, ReactiveMongoComponents}
-import java.lang.String._
-
-import play.api.Logger
 import play.twirl.api.Html
-
-import scala.collection.GenTraversable
-import scala.collection.immutable.IndexedSeq
 
 class Application @Inject()(ws: WSClient)
                            (implicit executionContext: ExecutionContext,
@@ -53,7 +38,6 @@ class Application @Inject()(ws: WSClient)
   implicit val materializer = ActorMaterializer()
   private val pattern = new Regex("([0-9]+\\.){3}[0-9]+:+([1-9]\\d{0,5})")
   private val collection = reactiveMongoApi.database.map(_.collection[BSONCollection]("test"))
-
   private val userForm = Form(
     mapping(
       "requestValue" -> text,
@@ -64,14 +48,16 @@ class Application @Inject()(ws: WSClient)
       "urlToParse" -> text
     )(UserData.apply)(UserData.unapply)
   )
+  private val userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/56.0.2924.87 Safari/537.36"
+  private val r = scala.util.Random
+  //  private val userAgent = USER_AGENT
 
+  private val urlToCheck = "https://www.google.com/search?q=proxy&first=0"
 
   private def pom(l: String, reqs: String, num: Int = 0) = l match {
     case "Google" =>
-      println(s"https://google.com/search?q=$reqs&start=$num")
-      s"https://google.com/search?q=$reqs&start=$num"
+      s"http://google.com/search?q=$reqs&start=$num&filter=0"
     case "Bing" =>
-      println(s"https://www.bing.com/search?q=$reqs&first=$num")
       s"https://www.bing.com/search?q=$reqs&first=$num"
     case s => s
   }
@@ -93,19 +79,17 @@ class Application @Inject()(ws: WSClient)
       .get()
   }
 
-
   private def Url(v: String, reqs: String, num: Int) = goInToUrl(pom(v, reqs, num))
 
   private def urlWithProxy(v: String,
-                           reqs: String = "alive+proxy",
-                           num: Int = 0, proxy: String) =
-    goInToUrlWithProxy(pom(v, reqs, num), proxy)
+                           reqs: String,
+                           num: Int = 0, proxy: String) = goInToUrlWithProxy(pom(v, reqs, num), proxy)
 
   def request(userData: UserData = UserData(), url: (String, String, Int) => Future[WSResponse] = Url): Seq[Future[WSResponse]] =
     userData match {
       case UserData(f, _, e, d, "2", _) => f match {
         case "Combine" =>
-          Seq(url("Google", "alive+proxy", (d - 1) * 10), url("Bing", "alive+proxy", (d - 1) * 10))
+          Seq(url("Google", e, (d - 1) * 10), url("Bing", e, (d - 1) * 10))
         case _ =>
           Seq(url(f, e, (d - 1) * 10))
       }
@@ -113,16 +97,15 @@ class Application @Inject()(ws: WSClient)
       case UserData(_, _, _, _, _, _) => throw sys.error("Error in line 93, Bad request")
     }
 
-
   private def proxyCheck(proxys: List[String]): Future[List[String]] = {
     def acc(pr: List[String], doneProxy: List[String]): Future[List[String]] = {
       pr.isEmpty match {
         case false =>
           val n: Int = pr.head.indexOf(":")
-          val defProxy: WSProxyServer = DefaultWSProxyServer(protocol = Some("http"),
+          val defProxy: WSProxyServer = DefaultWSProxyServer(protocol = Some("https"),
             host = pr.head.substring(0, n),
             port = pr.head.substring(n + 1, pr.head.length).toInt)
-          val check = reqAttr(pom("http://www.google.com.ua/search?q=аауоа", ""))
+          val check = reqAttr(urlToCheck)
             .withProxyServer(defProxy)
             .withRequestTimeout(Duration(30, SECONDS))
             .get()
@@ -131,16 +114,14 @@ class Application @Inject()(ws: WSClient)
             case _ => acc(pr.tail, doneProxy)
           }.recoverWith {
             case ex =>
-//              Logger.warn(ex.getStackTrace.mkString("\n"))
+              //              Logger.warn(ex.getStackTrace.mkString("\n"))
               acc(pr.tail, doneProxy)
           }
         case true => Future.successful(doneProxy)
       }
     }
-
     acc(proxys, List.empty)
   }
-
 
   private def reqq(userData: UserData): PartialFunction[WSResponse, Future[List[String]]] = {
     case f if f.body.nonEmpty && (f.status == 200) =>
@@ -158,15 +139,15 @@ class Application @Inject()(ws: WSClient)
                     val s = goInToUrl("https://google.com" + docz.select("h3.r a").first().attr("href"))
                     docz.select("h3.r a").first().remove()
                     s
-                  case _ => Future.failed(sys.error("Error: in request < 10 URLs"))
+                  case ex => Future.failed(sys.error("Error: in request < 10 URLs. This request: " + docz))
                 }
               case "Bing" => docz.select("h2 a").isEmpty match {
-                case false  =>
+                case false =>
                   val s = goInToUrl(docz.select("h2 a").first().attr("href"))
                   docz.select("h2 a").first().remove()
                   s
+                case _ => Future.failed(sys.error("Error: in request < 10 URLs"))
               }
-              case _ => Future.failed(sys.error("Error: in request < 10 URLs"))
             }
             docx.map(pattern findAllIn _.body toList).flatMap {
               case elements if elements.nonEmpty =>
@@ -175,7 +156,7 @@ class Application @Inject()(ws: WSClient)
                 acc(depth - 1, docz, s)
             }.recoverWith {
               case ex =>
-//                Logger.warn(ex.getStackTrace.mkString("\n"))
+                //                Logger.warn(ex.getStackTrace.mkString("\n"))
                 acc(depth - 1, docz, s)
             }
           case _ => Future.successful(s)
@@ -184,16 +165,18 @@ class Application @Inject()(ws: WSClient)
 
       val res = acc(10, doc, List.empty)
       res.flatMap(f => {
-        val prox = splitParProxy(f, f.length)
+        val prox = splitParProxy(f, f.length - 1)
         prox.flatMap { l =>
           writeInDb(l)
           prox
         }
-      }
-      )
+      })
     case f if f.status != 200 =>
+
       getFromDb.flatMap { f =>
-        request(userData, urlWithProxy(_, _, _, f.head))
+        val ran = r.nextInt(f.length)
+        println("Google need a captcha! Trying with proxy: " + f.drop(ran).head )
+        request(userData, urlWithProxy(_, _, _, f.drop(ran).head))
           .head
           .flatMap(reqq(userData))
       }
@@ -203,7 +186,6 @@ class Application @Inject()(ws: WSClient)
   }
 
   def writeInDb(l: List[String]): Unit = {
-    println(l)
     if (l.nonEmpty) {
       val docc = Json.obj(
         "proxy" -> l.map(z =>
@@ -245,8 +227,8 @@ class Application @Inject()(ws: WSClient)
 
   private def splitParProxy(list: List[String], int: Int): Future[List[String]] = {
     val res = for (ints <- 1 to int) yield proxyCheck(
-      list.drop(list.length * (ints - 1) / int)
-        .dropRight(list.length - list.length * ints / int))
+      list.drop((list.length - 1) * (ints - 1) / int)
+        .dropRight(list.length - 1 - (list.length - 1) * ints / int))
       .map { f => f }
     Future.sequence(res).map(_.flatten.toList)
   }
@@ -256,8 +238,8 @@ class Application @Inject()(ws: WSClient)
       val c = request(UserData(userData.requestValue, userData.requestType, userData.requestAnother, ints))
       c.nonEmpty match {
         case true if c.tail.nonEmpty =>
-          Future.sequence(Seq(c.tail.head.flatMap(reqq(userData)),
-            c.head.flatMap(reqq(userData))))
+          Future.sequence(Seq(c.tail.head.flatMap(reqq(UserData("Google", userData.requestType, userData.requestAnother, ints))),
+            c.head.flatMap(reqq(UserData("Bing", userData.requestType, userData.requestAnother, ints)))))
             .map(_.flatten.toList)
         case true =>
           c.head.flatMap(reqq(userData))
@@ -282,7 +264,6 @@ class Application @Inject()(ws: WSClient)
     }), 500.second)
 
   }
-
 
   def index(proxyList: List[String] = List.empty): Action[AnyContent] = proxyList match {
     case d if d.nonEmpty => Action {
