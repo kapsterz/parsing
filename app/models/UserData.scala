@@ -5,7 +5,7 @@ package models
   */
 case class UserData(requestValue: String = "Bing",
                     requestType: String = "proxy",
-                    requestAnother: String = "",
+                    requestAnother: String = "alive+proxy",
                     numberOfPages: Int = 1,
                     pasreFromURL: String = "2",
                     urlToParse: String = "")

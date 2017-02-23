@@ -35,6 +35,7 @@
                 '_label -> "What we will parsing?")
             @helper.inputText(
                 userForm("requestAnother"),
+                'value -> "alive proxy",
                 'id -> "another",
                 '_label -> "Request to parse")
             @helper.inputText(
@@ -42,7 +43,7 @@
                 '_label -> "Number of pages to parse")
             @helper.inputRadioGroup(
                 userForm("pasreFromURL"),
-                options=
+                options =
                         Seq(
                             "1" -> "true",
                             "2" -> "false"
@@ -51,7 +52,7 @@
             @helper.inputText(
                 userForm("urlToParse"),
                 '_label -> "Input ur URL")
-            <button type="submit" formmethod="post">Make request!</button>
+            <button type="submit" formmethod="get">Make request!</button>
         }
     </body>
 </html>
