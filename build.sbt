@@ -16,7 +16,10 @@ unmanagedResourceDirectories in Test <+=  baseDirectory ( _ /"target/web/public/
 
 libraryDependencies ++= Seq(
   "org.reactivemongo" %% "play2-reactivemongo" % "0.12.1",
-  "com.typesafe.akka" %% "akka-http" % "10.0.3"
+  "com.typesafe.akka" %% "akka-http" % "10.0.3",
+  "org.reactivemongo" %% "reactivemongo-akkastream" % "0.12.1",
+  "org.reactivemongo" %% "reactivemongo-iteratees" % "0.12.1",
+  "com.typesafe.play" %% "play-iteratees" % "2.5.12"
 )
 
 resolvers += "scalaz-bintray" at "http://dl.bintray.com/scalaz/releases"
