@@ -56,6 +56,11 @@ class Application @Inject()(@Named("actorRequests") actorRequests: ActorRef, ws:
     )
   }
 
+  def export = Action {
+    proxiesDAO.exportToFile
+    Ok("Processed")
+  }
+
   def userPost: Action[UserData] = Action.async(parse.form(userForm)) {
     implicit request =>
       actorRequests ! request.body

@@ -23,7 +23,7 @@ class MainActor @Inject()(proxiesDAO: ProxiesDAO, @Named("actorRequests") actorR
 
   import context._
 
-  private val urlToCheck = "https://bing.com"
+  private val urlToCheck = "https://google.com.ua"
   private val userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/56.0.2924.87 Safari/537.36"
 
   override def receive: Receive = {

@@ -39,6 +39,9 @@ class Requests @Inject()(@Named("actorMainActor") actorMainActor: ActorRef,
 
   def request(userData: UserData = UserData(), urlFunc: UrlModel => String = urlMaker): Unit =
     userData match {
+      case UserData(requestValue,requestType,requestAnother,numberOfPages,pasreFromURL,urlToParse) if requestValue == "Combine" =>
+        self ! UserData("Google", requestType, requestAnother, numberOfPages, pasreFromURL, urlToParse)
+        self ! UserData("Bing", requestType, requestAnother, numberOfPages, pasreFromURL, urlToParse)
       case UserData(requestValue, _, requestAnother, numberOfPages, pasreFromURL, _) if pasreFromURL == "2" =>
         actorMainActor ! (urlFunc(UrlModel(requestValue, requestAnother, (numberOfPages - 1) * 10)) -> userData)
       case UserData(_, _, requestAnother, _, pasreFromURL, urlToParse) if pasreFromURL == "1" =>

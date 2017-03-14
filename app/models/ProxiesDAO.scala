@@ -1,5 +1,6 @@
 package models
 
+import java.io.{File, PrintWriter}
 import javax.inject._
 
 import akka.stream.Materializer
@@ -8,7 +9,6 @@ import play.api.libs.iteratee.Enumerator
 import play.api.libs.json._
 import play.modules.reactivemongo._
 import reactivemongo.api.QueryOpts
-
 import reactivemongo.play.json._
 import reactivemongo.play.json.collection._
 import reactivemongo.akkastream.{State, cursorProducer}
@@ -35,6 +35,18 @@ class ProxiesDAO @Inject()(val reactiveMongoApi: ReactiveMongoApi)
     }
   }
 
+  def exportToFile: Future[Unit] = {
+    val pw = new PrintWriter(new File("hello.txt"))
+    findAllAsStream.map(
+      _.map { f =>
+        pw.write(f.proxy + "\n")
+      }.runForeach(f => f).onComplete{_ =>
+        pw.close()
+        println("Done")
+      }
+    )
+  }
+
   def find(skipN: Int = 0, count: Int = 10): Future[List[Proxy]] = {
     collection.flatMap(
       f =>
@@ -44,14 +56,14 @@ class ProxiesDAO @Inject()(val reactiveMongoApi: ReactiveMongoApi)
         ).options(
           QueryOpts(skipN * 10, count))
           .cursor[Proxy]()
-//                    .documentSource()
+          //                    .documentSource()
           //          .runWith(Sink.seq[JsObject])
           .collect[List]()
-//          .map(s =>
-//            s.map(
-//              el => Proxy.jsObjectToProxy(el)
-//            )
-//          )
+      //          .map(s =>
+      //            s.map(
+      //              el => Proxy.jsObjectToProxy(el)
+      //            )
+      //          )
     )
     //    ).flatMap(
     //      _.map(
@@ -66,10 +78,10 @@ class ProxiesDAO @Inject()(val reactiveMongoApi: ReactiveMongoApi)
     collection.map(f => f.find(Json.obj()).cursor[Proxy]().documentSource())
   }
 
-  def findProxy(pr: String): Future[List[Proxy]] ={
+  def findProxy(pr: String): Future[List[Proxy]] = {
     collection.flatMap {
       f =>
-        val s = f.find(Json.obj("proxy" -> pr ))
+        val s = f.find(Json.obj("proxy" -> pr))
           .cursor[Proxy]()
           .collect[List]()
         println(s)

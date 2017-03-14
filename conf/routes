@@ -3,15 +3,17 @@
 # ~~~~
 
 # Home page
-GET     /                                  controllers.Application.index(d: List[String])
+GET         /sss                 controllers.Application.index(d: List[String])
 
-GET     /test                              controllers.Application.test
+GET         /test                controllers.Application.test
 
-POST     /userPost                         controllers.Application.userPost
+POST        /userPost            controllers.Application.userPost
 
-GET      /checkdb                          controllers.Application.checkDB
+GET         /checkdb             controllers.Application.checkDB
+
+GET         /export              controllers.Application.export
 
 # Map static resources from the /public folder to the /assets URL path
-GET     /assets/*file               controllers.Assets.at(path="/public", file)
+GET         /assets/*file        controllers.Assets.at(path="/public", file)
 
     
